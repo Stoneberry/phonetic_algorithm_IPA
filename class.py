@@ -6,16 +6,16 @@ class PhoneticAlgorithmIPA:
 
     def default_settings(self):
         
-        with open('/Users/Stoneberry/Desktop/курсач/4/data/ftable.pickle', 'rb') as f:
+        with open('ftable.pickle', 'rb') as f:
             self.feature_table = pickle.load(f)
 
-        with open('/Users/Stoneberry/Desktop/курсач/4/data/index_column.pickle', 'rb') as f:
+        with open('index_column.pickle', 'rb') as f:
             self.column_index = pickle.load(f)
 
-        with open('/Users/Stoneberry/Desktop/курсач/4/data/non_ls_dist.pickle', 'rb') as f:
+        with open('non_ls_dist.pickle', 'rb') as f:
             self.distance_matrix = pickle.load(f)
 
-        with open('/Users/Stoneberry/Desktop/курсач/4/data/rows.pickle', 'rb') as f:
+        with open('rows.pickle', 'rb') as f:
             self.row = pickle.load(f)
     
         # открывать файл с диакритиками
@@ -34,10 +34,13 @@ class PhoneticAlgorithmIPA:
         v = 'The stress is presented incorrectly'
         
         if number < 0: raise ValueError(v)
-        if length-1-index < number+1 or word[index+1] != '_': # тут не учитываются случаи типа x͜ⁿ_1 - надо подумать над этим
+        if length-1-index < number+1 or word[index+1] not in ('_', '='): # тут не учитываются случаи типа x͜ⁿ_1 - надо подумать над этим
             raise ValueError(v)
+            
+        if word[index+1] == '_': typ = 'main'
+        elif word[index+1] == '=': typ = 'side'
 
-        return [number, number]
+        return [number, number, typ]
     
     
     def affricate(self, current, answer):
@@ -81,7 +84,9 @@ class PhoneticAlgorithmIPA:
         current.value = letter
         current.vector = letter
         
-        if step != 0: current.dia['stress'] = '+'
+        if step != 0: 
+            if step[-1] == 'main': current.dia['stress'] = '+'
+            else: current.dia['second stress'] = '+'
         
         if current.dia != {}:
             vector = copy.copy(self.feature_table[letter])
@@ -94,7 +99,7 @@ class PhoneticAlgorithmIPA:
             
         if step != 0:
             step = self.stress_app(letter, step, current, answer)
-
+    
         answer.append(current.vector)
         
         if index != length - 1:
@@ -121,12 +126,13 @@ class PhoneticAlgorithmIPA:
         current = ''
         step = 0
 
+        
         for index, letter in enumerate(word):
             
             if index == 0:
                 current = head
    
-            elif letter.isdigit():
+            if letter.isdigit():
                 step = self.stress_number(length, word, index, int(letter), current)
     
             elif letter in diacrit:
@@ -136,7 +142,7 @@ class PhoneticAlgorithmIPA:
             
                 if letter in ('͡', '͜'): current.affr = True
                 
-                elif letter == '_':  continue
+                elif letter in ('_', '='):  continue
             
                 else: 
                     value = diacrit[letter]
@@ -146,7 +152,7 @@ class PhoneticAlgorithmIPA:
                 current, step = self.letter_parser(letter, current, step, answer, index, length)
 
             else: raise ValueError('Wrong value: {}'.format(letter))
-    
+
         return answer[::-1]
     
      
@@ -173,7 +179,7 @@ class PhoneticAlgorithmIPA:
         if type(a) == str:
         
             if type(b) == str:  # a vs a
-                dist = self.distance_matrix[a][rows[b]]
+                dist = self.distance_matrix[a][self.row[b]]
             else: # a vs stress
                 dist = self.sound_dist(self.feature_table[a], b)
     
@@ -217,7 +223,7 @@ class PhoneticAlgorithmIPA:
     def phone_dist(self, a, b):
     
         if type(a) == str and type(b) == str:         # a vs b
-            dist = self.distance_matrix[a][rows[b]]
+            dist = self.distance_matrix[a][self.row[b]]
         
         elif type(a) == str: # a 
             if type(b) is not list:                   # a vs stress
@@ -305,7 +311,7 @@ class PhoneticAlgorithmIPA:
 
             dists.append(dist)
             print(line, dist)
-
+    
         return dists
     
     
